@@ -36,6 +36,8 @@ Comandos de leitura são permitidos: `git status`, `git log`, `git diff`, `git g
 
 Não use comandos aparentemente inofensivos que modificam estado, como `dotnet format`, `npm install`, `npm audit fix`, `prisma migrate`, `db push`, `docker compose up`, scripts de inicialização ou testes que escrevam em serviços compartilhados.
 
+Auditoria de dependências que só lê o manifesto ou o lockfile é permitida (ex.: `npm audit --omit=dev`, `pnpm audit`, `yarn npm audit`, `pip-audit -r requirements.txt`, `osv-scanner --lockfile`, `govulncheck`). Antes de rodar, confirme que o comando não instala nem restaura nada dentro do repositório: `dotnet list package --vulnerable`, por exemplo, exige restore, que grava em `obj/`; nesse caso, rode com a saída redirecionada para fora (`--artifacts-path`) ou não rode e marque `não verificado`. Esses comandos consultam bases públicas de vulnerabilidade pela rede, mas não enviam código do projeto.
+
 **Desconfie de saída filtrada.** Se o shell passa por algum filtro ou proxy que resume saídas (ex.: corta o `git log` em N linhas), contagens tiradas dele estão erradas. Confirme números que vão para o relatório com o comando cru (ex.: `git rev-list --count HEAD`) antes de citá-los.
 
 ### 1.2 Segurança antes de executar testes
@@ -112,7 +114,7 @@ Antes da Etapa 0, decida onde olhar:
 Se a ferramenta permitir subagentes:
 
 - Escreva um **brief comum** num arquivo temporário fora do repositório: regras de somente leitura, as perguntas de refutação do item 1.4, teses já refutadas, níveis de severidade e o formato de notas. Cada subagente lê esse arquivo primeiro.
-- Distribua as etapas que não dependem umas das outras (ex.: testes; segurança; SOLID e DDD; autorização; middlewares; concorrência e idempotência; arquitetura e manutenibilidade; performance).
+- Distribua as etapas que não dependem umas das outras (ex.: testes; segurança de exposição e segredos; dependências, IA, upload e containers; SOLID e DDD; autorização; middlewares; concorrência e idempotência; arquitetura e manutenibilidade; performance).
 - Cada subagente grava suas notas num arquivo próprio fora do repositório e devolve só um resumo curto (IDs, severidade, status e caminho das notas).
 - Auditoria, diagnóstico e qualquer contagem que vire conclusão exigem um modelo capaz de raciocinar sobre código, não um modelo de coleta mecânica.
 - O agente principal **não repassa os achados como vieram**: relê no código cada candidato ao Top 5 e cada candidato de arquitetura, aplicando o item 1.4. Subagente que recebe uma hipótese tende a devolvê-la confirmada.
@@ -192,6 +194,45 @@ Sem banco exposto ao cliente, verifique SQL cru com interpolação, filtros glob
 #### 2.3 Segredos e cadeia de configuração
 
 Verifique `.env.example`, manifests, configurações, pipelines (segredos literais, `pull_request_target`, interpolação de título ou corpo de PR em script) e referências a variáveis. Não leia nem imprima valores secretos sem necessidade. Procure credenciais no histórico Git quando seguro, sem copiar o valor.
+
+Verifique também o tratamento de segredos em execução: criptografia de dados sensíveis em repouso (certificados, tokens de terceiros, credenciais de integração por tenant), de onde vem a chave e se ela é diferente por ambiente; segredos que aparecem em log, mensagem de erro, URL ou resposta de API; hash de senha (algoritmo e custo).
+
+#### 2.4 Dependências e cadeia de suprimento
+
+- Rode a auditoria de dependências permitida no item 1.1 para cada ecossistema (front, back, app móvel, ferramentas). Liste as vulnerabilidades altas e críticas com pacote, versão, CVE ou GHSA e se o pacote é de produção ou só de desenvolvimento.
+- Para cada vulnerabilidade relevante, diga se o código usa a parte afetada (função, parser, rota). Vulnerabilidade em pacote de desenvolvimento ou em caminho não usado não é Alta.
+- Lockfile versionado e coerente com o manifesto? Versões fixadas ou faixas abertas em pacotes críticos?
+- Pacotes abandonados, sem manutenção ou com nome parecido com um pacote conhecido (typosquatting).
+- Scripts de instalação (`postinstall`, `prepare`) de dependências e do próprio projeto.
+- CI: actions de terceiros fixadas por SHA ou só por tag; permissões do token do workflow; segredos expostos a PR de fork; runners self-hosted executando código de PR.
+- Recursos carregados em tempo de execução de CDN de terceiros sem Subresource Integrity.
+
+#### 2.5 Funcionalidades com IA e LLM
+
+Se a aplicação chama um modelo de linguagem (assistente, chatbot, classificação, extração, agente com ferramentas):
+
+- **Entrada não confiável:** texto de usuário, documento enviado, e-mail, página da web ou resultado de ferramenta que chega ao prompt pode carregar instruções (prompt injection direta ou indireta). Mapeie de onde vem cada pedaço do contexto.
+- **Ferramentas e efeitos:** o que o modelo pode fazer sozinho (consultar, escrever, enviar, pagar)? Ações com efeito exigem confirmação humana fora do modelo? A autorização das ferramentas é a do usuário que pediu ou uma credencial de serviço com mais poder?
+- **Isolamento de tenant:** o contexto, a memória, o cache de respostas, os embeddings e a busca (RAG) filtram por tenant e por permissão antes de chegar ao modelo, e não depois?
+- **Saída:** a resposta do modelo é tratada como dado não confiável (renderizada sem HTML ativo, nunca executada como SQL, comando ou URL sem validação)?
+- **Vazamento:** prompt de sistema, segredos, dados de outros clientes ou PII enviados ao provedor sem necessidade; retenção e região do provedor; logs de prompt com dados sensíveis.
+- **Custo e abuso:** limite de uso por usuário e por tenant, teto de tokens e de chamadas de ferramenta, proteção contra laço.
+
+#### 2.6 Upload, download e processamento de arquivos
+
+- Tipo validado pelo conteúdo (assinatura do arquivo), não só pela extensão ou pelo `Content-Type` enviado.
+- Teto de tamanho coerente em todas as camadas (ver Etapa 6) e limite de quantidade.
+- Antivírus ou quarentena quando o arquivo é repassado a outras pessoas.
+- Nome de arquivo do usuário usado em caminho (path traversal) ou em cabeçalho de download.
+- Download servido como anexo, com `X-Content-Type-Options: nosniff`, e conferência de dono antes de entregar; SVG e HTML enviados por usuário nunca servidos inline no domínio da aplicação.
+- Parsers de XML, PDF, imagem, planilha e ZIP: XXE e expansão de entidades, zip bomb, descompressão sem limite, fórmulas de planilha exportada (CSV injection).
+
+#### 2.7 Containers e infraestrutura versionada
+
+- Dockerfiles: processo rodando como root, imagem base desatualizada ou sem versão fixa, segredo copiado para a imagem ou passado em `ARG`, ferramentas de build sobrando na imagem final.
+- Compose, Kubernetes ou IaC no repositório: portas publicadas além do necessário, serviços internos (banco, fila, painel de jobs, métricas) alcançáveis de fora, volumes com o socket do Docker, containers privilegiados.
+- Painéis administrativos de terceiros (filas, logs, métricas) com senha padrão ou sem autenticação.
+- O que depende de configuração fora do repositório (WAF, regras de CDN, firewall, buckets) vai para `não verificado`, com o que seria preciso para conferir.
 
 ### Etapa 3 — SOLID e desenho dos módulos
 
@@ -337,7 +378,7 @@ O HTML deve ser autocontido:
 
 1. **Cabeçalho executivo:** projeto; data e commit/branch; stack; escopo e limitações; testes executados e resultado; legenda de severidade e status; resultado geral em duas ou três frases.
 2. **Top 5 riscos:** ordenados por risco, com resumo, impacto, evidência, alcance real e link para a seção detalhada.
-3. **Resumo por domínio:** testes, segurança, SOLID, DDD, perfis e autorização, middlewares, concorrência, idempotência, arquitetura, manutenibilidade, performance.
+3. **Resumo por domínio:** testes, segurança (exposição e segredos; dependências; IA e LLM; arquivos; containers), SOLID, DDD, perfis e autorização, middlewares, concorrência, idempotência, arquitetura, manutenibilidade, performance.
 4. **Detalhamento das etapas:** uma seção por etapa, com os achados no formato 4.2, a seção "Verificado e correto" (controles conferidos, com arquivo e linha) e o que não foi verificado.
 5. **Matriz de perfis e permissões.**
 6. **Mapa de arquitetura:** diagrama dos módulos, dependências, bancos, filas e integrações, com os acoplamentos verificados destacados. Não invente relações.

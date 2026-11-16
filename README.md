@@ -12,7 +12,7 @@ Percorre doze etapas, na ordem:
 |---|---|
 | 0 | Reconhecimento: stack, módulos, histórico Git, áreas quentes, ADRs |
 | 1 | Testes: o que existe, o que bate na rota real, o que roda no CI, banco de teste isolado |
-| 2 | Segurança e confiança no cliente: regra só no front, chaves no bundle, RLS e policies, segredos |
+| 2 | Segurança: regra só no front, chaves no bundle, RLS e policies, segredos, dependências vulneráveis e cadeia de suprimento, funcionalidades com IA/LLM, upload de arquivos, containers |
 | 3 | SOLID |
 | 4 | DDD e integridade do domínio |
 | 5 | Perfis, autenticação, autorização e isolamento multi-tenant (com matriz de acesso) |
