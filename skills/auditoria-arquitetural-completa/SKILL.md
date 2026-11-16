@@ -101,6 +101,17 @@ A severidade considera impacto, facilidade de exploração, exposição e **alca
 
 ## 2. Organização do trabalho
 
+### 2.0 Abertura
+
+Antes de qualquer leitura, diga ao usuário, em até cinco linhas e em linguagem simples:
+
+- o que vai acontecer (leitura do projeto em doze etapas e um relatório `AUDITORIA.html` na raiz);
+- que nenhum arquivo do projeto será alterado e nada será instalado;
+- que a auditoria de um projeto grande pode levar bastante tempo e consumir muito do limite de uso, e que restringir a uma área reduz as duas coisas;
+- que ele pode acompanhar ou sair e voltar depois.
+
+Se o usuário passou argumentos ao chamar a skill (ex.: `/auditoria-arquitetural-completa só o módulo de pagamentos`), eles definem o escopo e você não pergunta de novo. Se a pasta não é um repositório Git, siga sem a parte de histórico e registre a limitação.
+
 ### 2.1 Escopo antes de varrer
 
 Antes da Etapa 0, decida onde olhar:
@@ -421,7 +432,12 @@ Depois de validar que o HTML foi gerado (estrutura bem formada, âncoras com alv
 4. Destaque o primeiro prompt de correção e a justificativa.
 5. Informe as limitações e verificações pendentes.
 6. Reafirme que nenhum arquivo do projeto foi alterado além do relatório.
-7. Pergunte o que o usuário quer explorar: um ou mais achados de correção, um ou mais candidatos de arquitetura, ou todos.
+7. Explique em duas ou três frases, sem jargão, o que o resultado significa para o produto (ex.: "um cliente bloqueado ainda consegue usar a integração"), para quem não é técnico entender a prioridade.
+8. Diga o que ele pode pedir em seguida, com frases prontas para copiar:
+   - `explorar AUTH-01` (ou o ID que quiser): aprofunda um achado e traz as decisões de correção;
+   - `explorar todos`: faz isso para os cinco do Top 5 e para os candidatos de arquitetura;
+   - `grelhar ARQ-1`: discute um candidato de arquitetura, uma pergunta por vez;
+   - `implementar o prompt 1`: começa a correção, fora do modo de auditoria.
 
 Não comece a corrigir. Aguarde um pedido explícito.
 
