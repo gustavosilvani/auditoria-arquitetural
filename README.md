@@ -32,17 +32,29 @@ Para auditar só uma parte, diga qual:
 /auditoria-arquitetural-completa só o módulo de pagamentos
 ```
 
-**5. Espere o relatório.** A skill avisa o que vai fazer, pergunta o escopo se o projeto for grande e trabalha sozinha. No fim, aparece um `AUDITORIA.html` na raiz do projeto. Abra no navegador: o topo traz os cinco maiores riscos e o fim traz cinco prompts de correção prontos para copiar.
+Primeira vez, ou app pequeno feito com IA? Comece pelo modo rápido. Ele roda só as etapas que mais pegam problema nesse tipo de app (testes, regra que só existe no front, chaves expostas, race condition, idempotência de webhook e pagamento, separação de responsabilidades) e termina bem mais cedo:
+
+```text
+/auditoria-arquitetural-completa rápida
+```
+
+Prefere o relatório em Markdown, para ler no GitHub ou no editor? Peça:
+
+```text
+/auditoria-arquitetural-completa rápida em markdown
+```
+
+**5. Espere o relatório.** A skill avisa o que vai fazer, pergunta o escopo se o projeto for grande e trabalha sozinha. No fim, aparece um `AUDITORIA.html` (ou `AUDITORIA.md`, se você pediu Markdown) na raiz do projeto. Abra o HTML no navegador: o topo traz os cinco maiores riscos e o fim traz cinco prompts de correção prontos para copiar.
 
 **6. Decida o próximo passo.** A skill termina sugerindo frases para você mandar, como `explorar AUTH-01` (aprofunda um achado e traz as decisões), `explorar todos` ou `implementar o prompt 1`.
 
 ### Quanto tempo e quanto custa
 
-Depende do tamanho do projeto. Um projeto pequeno leva minutos. Um monorepo grande pode levar uma hora ou mais e consumir uma parte grande do limite de uso do seu plano, porque a skill lê muito código e confere cada achado. Restringir o escopo a uma área é o jeito mais simples de reduzir as duas coisas. Use o modelo mais capaz que o seu plano oferece: auditoria é trabalho de raciocínio.
+Depende do tamanho do projeto e do modo. Um projeto pequeno no modo rápido leva minutos. Um monorepo grande pode levar uma hora ou mais e consumir uma parte grande do limite de uso do seu plano, porque a skill lê muito código e confere cada achado. Restringir o escopo a uma área é o jeito mais simples de reduzir as duas coisas. Use o modelo mais capaz que o seu plano oferece: auditoria é trabalho de raciocínio.
 
 ## Perguntas frequentes
 
-**Ela altera o meu código?** Não. A única coisa que ela escreve no projeto é o `AUDITORIA.html`. Notas de trabalho ficam numa pasta temporária fora do projeto. Se já existir um `AUDITORIA.html`, ela não sobrescreve sem perguntar.
+**Ela altera o meu código?** Não. A única coisa que ela escreve no projeto é o relatório (`AUDITORIA.html` ou `AUDITORIA.md`). Notas de trabalho ficam numa pasta temporária fora do projeto. Se já existir um `AUDITORIA.html`, ela não sobrescreve sem perguntar.
 
 **Ela roda os meus testes?** Só se conseguir provar, lendo a configuração, que os testes não tocam banco de produção, filas ou serviços externos reais. Se não conseguir provar, não roda e registra o motivo no relatório.
 

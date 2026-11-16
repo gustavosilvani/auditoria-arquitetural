@@ -1,5 +1,5 @@
 ---
-description: Audita aplicações de ponta a ponta em segurança, testes, SOLID, DDD, autorização, middlewares, concorrência, idempotência, arquitetura e performance. Opera em modo somente leitura no projeto, refuta cada achado antes de classificá-lo e entrega um relatório HTML autocontido com evidências, oportunidades de aprofundamento e cinco prompts de correção priorizados. Depois do relatório, conduz a exploração e o grilling do que o usuário escolher.
+description: Audita aplicações de ponta a ponta em segurança, testes, SOLID, DDD, autorização, middlewares, concorrência, idempotência, arquitetura e performance. Opera em modo somente leitura no projeto, refuta cada achado antes de classificá-lo e entrega um relatório (HTML autocontido ou Markdown) com evidências, oportunidades de aprofundamento e cinco prompts de correção priorizados. Depois do relatório, conduz a exploração e o grilling do que o usuário escolher.
 disable-model-invocation: true
 name: auditoria-arquitetural-completa
 ---
@@ -32,7 +32,7 @@ Durante a auditoria:
 - Não faça deploy, commit, push, publicação, chamadas de escrita em APIs ou alterações em serviços externos.
 - Não altere bancos, filas, buckets, caches, contas ou recursos cloud.
 - Não crie arquivos temporários dentro do repositório. Notas de trabalho, saídas de build e relatórios intermediários vão para um diretório temporário fora dele.
-- A única escrita permitida no repositório é o `AUDITORIA.html` final, na raiz. Se ele já existir, não o sobrescreva sem autorização explícita: gere um nome alternativo fora do repositório e informe.
+- A única escrita permitida no repositório é o relatório final na raiz: `AUDITORIA.html`, ou `AUDITORIA.md` se o usuário pediu Markdown. Se ele já existir, não o sobrescreva sem autorização explícita: gere um nome alternativo fora do repositório e informe.
 
 Comandos de leitura são permitidos: `git status`, `git log`, `git diff`, `git grep`, `git rev-list`, `grep`, `find`, `rg`, `cat`, `sed`, `head`, `tail`, listagem e leitura de configurações.
 
@@ -113,6 +113,14 @@ Antes de qualquer leitura, diga ao usuário, em até cinco linhas e em linguagem
 - que ele pode acompanhar ou sair e voltar depois.
 
 Se o usuário passou argumentos ao chamar a skill (ex.: `/auditoria-arquitetural-completa só o módulo de pagamentos`), eles definem o escopo e você não pergunta de novo. Se a pasta não é um repositório Git, siga sem a parte de histórico e registre a limitação.
+
+#### Modo e formato
+
+- **Modo completo** (padrão): as doze etapas.
+- **Modo rápido**: quando o usuário pedir "rápida", "rápido" ou "só o essencial", ou escolher essa opção na pergunta de escopo. Roda só as etapas que mais pegam problema em aplicações feitas com IA: Etapa 0 resumida (stack, estrutura e fluxos críticos, sem mapa completo), Etapa 1 (testes), Etapa 2 itens 2.1 a 2.3 (confiança no cliente, banco exposto e segredos), Etapa 7 (race condition), Etapa 8 (idempotência) e Etapa 10 (separação de responsabilidades), mais a consolidação da Etapa 12. As regras de somente leitura, refutação e severidade valem igual. No relatório, as etapas puladas aparecem em "Limitações" como `fora do escopo do modo rápido`, e as seções sem conteúdo (matriz de perfis, mapa de arquitetura, oportunidades de aprofundamento) são omitidas.
+- **Formato:** HTML por padrão. Se o usuário pedir Markdown ("em markdown", "AUDITORIA.md"), entregue `AUDITORIA.md` no lugar do HTML, seguindo a seção 4.4. Nunca gere os dois.
+
+Na pergunta de escopo de um repositório grande, ofereça o modo rápido como uma das opções.
 
 ### 2.1 Escopo antes de varrer
 
@@ -373,7 +381,7 @@ Cada prompt orienta uma tarefa posterior, não executa a correção agora, e dev
 
 ## 4. Formato obrigatório do relatório
 
-Gere **um único `AUDITORIA.html` na raiz do projeto**. Não gere `AUDITORIA.md`, JSON, CSV ou arquivos auxiliares no repositório.
+Gere **um único `AUDITORIA.html` na raiz do projeto** (ou `AUDITORIA.md`, se o usuário pediu Markdown; ver 4.4). Não gere os dois, nem JSON, CSV ou arquivos auxiliares no repositório.
 
 O HTML deve ser autocontido:
 
@@ -422,13 +430,24 @@ Achados de severidade Baixa podem ir numa tabela compacta, mas com as colunas: I
 
 O relatório deve parecer uma revisão técnica profissional, não um dashboard genérico: hierarquia clara; resumo executivo conciso; severidades fáceis de distinguir; diagramas simples; código e caminhos em fonte monoespaçada; português claro; sem animações decorativas nem gráficos sem significado; nenhum achado importante escondido atrás de interação; todo conteúdo essencial visível sem JavaScript.
 
+### 4.4 Versão em Markdown
+
+Quando o usuário pedir Markdown, o `AUDITORIA.md` segue a mesma estrutura da 4.1, com estas adaptações:
+
+- No topo, os cinco achados de maior risco em ordem, cada um com uma linha de impacto e o link para a seção.
+- Uma tabela por etapa com as colunas: ID, achado, risco (alto, médio ou baixo), status, arquivo e linha, correção sugerida. Os achados médios ou maiores ganham, abaixo da tabela, o bloco completo da 4.2.
+- Severidade escrita por extenso, nunca só por emoji ou cor.
+- Diagramas em blocos `mermaid` (renderizam no GitHub e em vários editores) e só para relações confirmadas; antes e depois das oportunidades de aprofundamento como dois blocos lado a lado no texto.
+- Os cinco prompts de correção em blocos de código, para copiar.
+- Termina dizendo qual dos cinco prompts rodar primeiro e por quê.
+
 ------------------------------------------------------------------------
 
 ## 5. Como finalizar
 
-Depois de validar que o HTML foi gerado (estrutura bem formada, âncoras com alvo, nenhum recurso externo, `git status` mostrando só o relatório):
+Depois de validar que o relatório foi gerado (estrutura bem formada, âncoras com alvo, nenhum recurso externo, `git status` mostrando só o relatório):
 
-1. Informe o caminho absoluto do `AUDITORIA.html`.
+1. Informe o caminho absoluto do relatório.
 2. Resuma os cinco maiores riscos.
 3. Informe se os testes foram executados ou bloqueados e por quê.
 4. Destaque o primeiro prompt de correção e a justificativa.
