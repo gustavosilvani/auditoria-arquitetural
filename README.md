@@ -35,7 +35,15 @@ Depois do relatório, se você pedir para explorar um achado ou um candidato de 
 
 ## Instalação
 
-Copie a pasta da skill para o diretório de skills do Claude Code:
+Com a CLI do [skills.sh](https://skills.sh):
+
+```bash
+npx skills add gustavosilvani/auditoria-arquitetural
+```
+
+Para instalar no nível do usuário (todos os projetos), acrescente `-g`. Para atualizar depois, `npx skills update`.
+
+Sem a CLI, copie a pasta da skill para o diretório de skills do Claude Code:
 
 ```bash
 git clone https://github.com/gustavosilvani/auditoria-arquitetural.git
