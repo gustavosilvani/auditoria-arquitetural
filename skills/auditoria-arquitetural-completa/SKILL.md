@@ -75,6 +75,8 @@ Com o isolamento comprovado:
 - Não exponha segredos no relatório: mostre nome da variável, arquivo e classificação, com o valor mascarado.
 - Não copie tokens, senhas, connection strings completas, dados pessoais ou payloads sensíveis para o HTML.
 - Se encontrar um segredo aparentemente válido, não tente usá-lo nem abra o diff que o contém para "confirmar". Informe o risco e recomende rotação ou revogação por procedimento autorizado.
+- Quando uma categoria não se aplica à stack (ex.: projeto sem frontend, sem banco exposto, sem IA), diga isso explicitamente com o motivo, em vez de forçar achados.
+- Registre também o que foi verificado e está correto, com evidência. Isso prova a cobertura da auditoria e vira a seção de pontos fortes.
 
 ### 1.4 Refutação obrigatória
 
@@ -96,6 +98,7 @@ Use os níveis:
 - **Alta:** falha relevante de segurança, integridade, disponibilidade ou fluxo crítico.
 - **Média:** fragilidade com condições específicas, risco operacional ou custo de manutenção significativo.
 - **Baixa:** melhoria localizada, dívida técnica ou oportunidade sem impacto imediato demonstrado.
+- **Informativa:** ponto de atenção sem risco demonstrado (prática a registrar, condição que só vira risco se algo mudar). Não entra no Top 5.
 
 A severidade considera impacto, facilidade de exploração, exposição e **alcance real** (item 4 da refutação). Caminho que nenhum fluxo de produção alcança hoje não passa de Baixa, ainda que o defeito de código seja real. Não eleve a severidade por preferência arquitetural.
 
@@ -196,7 +199,7 @@ Se o isolamento estiver comprovado, execute os testes seguros (item 1.2) e infor
 Procure:
 
 - Regras de preço, desconto, comissão, saldo, limite de plano e elegibilidade só no frontend.
-- Permissão ou papel decidido só escondendo botão ou rota. Para cada caso, ache o endpoint e confira se o backend valida.
+- Permissão ou papel decidido só no navegador. Faça o inventário de **todos** os gates de papel do frontend (`isAdmin`, `canEdit`, `role`, guards de rota, diretivas e pipes de permissão, itens de menu condicionais) e cruze cada um com o endpoint que a ação chama. Para cada par, confirme se o backend exige o mesmo privilégio. Um gate sem verificação equivalente no servidor é achado, ainda que o botão esteja escondido.
 - Validações que não se repetem no backend.
 - IDs previsíveis e operações que confiam em valores enviados pelo navegador (tenant, preço, valor de frete).
 - Variáveis expostas ao bundle: `NEXT_PUBLIC_`, `VITE_`, `EXPO_PUBLIC_`, arquivos `environment*`, configs de app móvel.
@@ -215,6 +218,8 @@ Sem banco exposto ao cliente, verifique SQL cru com interpolação, filtros glob
 #### 2.3 Segredos e cadeia de configuração
 
 Verifique `.env.example`, manifests, configurações, pipelines (segredos literais, `pull_request_target`, interpolação de título ou corpo de PR em script) e referências a variáveis. Não leia nem imprima valores secretos sem necessidade. Procure credenciais no histórico Git quando seguro, sem copiar o valor.
+
+Procure segredos embutidos (API keys, tokens, senhas, segredos de assinatura de JWT e webhooks, chaves privadas, credenciais padrão) em código, configs, `docker-compose`, charts, IaC, CI, scripts e documentação, além do bundle do frontend e do histórico Git. Atenção especial a **defaults que viram segredo real** quando não são sobrescritos (`${VAR:-valor-default}` no compose, `default:` em charts, valor de fallback no código) e à ausência de uma validação de startup que recuse esses defaults fora de desenvolvimento. Default público com validação de startup que o recusa em produção é controle correto; registre como tal.
 
 Verifique também o tratamento de segredos em execução: criptografia de dados sensíveis em repouso (certificados, tokens de terceiros, credenciais de integração por tenant), de onde vem a chave e se ela é diferente por ambiente; segredos que aparecem em log, mensagem de erro, URL ou resposta de API; hash de senha (algoritmo e custo).
 
@@ -255,6 +260,13 @@ Se a aplicação chama um modelo de linguagem (assistente, chatbot, classificaç
 - Painéis administrativos de terceiros (filas, logs, métricas) com senha padrão ou sem autenticação.
 - O que depende de configuração fora do repositório (WAF, regras de CDN, firewall, buckets) vai para `não verificado`, com o que seria preciso para conferir.
 
+#### 2.8 Entrada sem tratamento (XSS e injeção em templates)
+
+- **Frontend:** `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write` e os equivalentes do framework (`dangerouslySetInnerHTML`, `v-html`, `[innerHTML]`, `bypassSecurityTrust*`, `{@html}`); markdown ou HTML renderizado sem sanitização; URL controlada pelo usuário em `href`, `src` ou `window.location` sem bloquear `javascript:` e `data:`; `eval`, `new Function`, `setTimeout` com string.
+- **Backend:** entrada do usuário entrando em HTML de e-mail, template, PDF ou resposta sem escape; templates com escape desligado (`|safe`, `Html.Raw`, `{{{ }}}`, `<%- %>`); cabeçalhos montados com entrada do usuário.
+- Verifique se o projeto tem biblioteca de sanitização (ex.: DOMPurify, sanitizador do framework) e se ela é aplicada em **cada** ponto encontrado, não só existir.
+- Para cada ponto, diga de onde vem o dado (usuário comum, outro tenant, administrador, provedor externo, só o próprio sistema) e quem vê o resultado. XSS armazenado que um usuário injeta e outro vê é o caso grave.
+
 ### Etapa 3 — SOLID e desenho dos módulos
 
 Avalie os cinco princípios com exemplos concretos:
@@ -281,7 +293,8 @@ Construa uma matriz de acesso com os perfis do código e as operações relevant
 - Diferença entre autenticação e autorização; RBAC e, se houver, ABAC.
 - Permissões por operação e por recurso; hierarquia; privilégio mínimo; negação por padrão.
 - Verificação no backend em cada operação sensível: endpoints, handlers, jobs, comandos, GraphQL/RPC, downloads, streams.
-- Escalada horizontal e vertical; IDOR/BOLA (amostre handlers por id em vários módulos e leia cada um até o filtro).
+- Escalada horizontal e vertical.
+- **IDOR/BOLA, sem amostragem.** Faça o inventário de **todos** os handlers que buscam, alteram ou excluem um objeto por id (no path, na query ou no corpo), inclusive downloads, streams e jobs disparados por id. Classifique cada um: protegido por mecanismo estrutural (filtro global de tenant, RLS, behavior que confere alcance), protegido por verificação manual no próprio handler, ou sem verificação. Os que dependem de verificação manual e os sem verificação são lidos até o ponto do filtro. Se o volume impedir ler todos, diga quantos foram lidos do total e quais ficaram de fora; nunca apresente amostra como cobertura completa.
 - Acesso administrativo, suporte e impersonação.
 - Revogação, expiração e atualização de permissões e sessões; contas desativadas; memberships revogados; claims desatualizadas.
 - **Todos os canais de acesso**, não só o login web: chaves de API, credenciais de integração, tokens de serviço, links públicos com token. Uma regra como "empresa desativada perde o acesso" precisa valer em cada canal.
@@ -290,7 +303,7 @@ Construa uma matriz de acesso com os perfis do código e as operações relevant
 
 #### Isolamento multi-tenant
 
-Quando houver tenant, organização, filial ou equivalente, verifique: como o tenant é resolvido; se vem de claim confiável ou do cliente; se consultas e comandos o restringem; se relações entre entidades validam o mesmo tenant; se cache, filas, arquivos, relatórios e integrações preservam o contexto; se jobs recebem tenant explícito; se operações cross-tenant são excepcionais, auditadas e autorizadas.
+Quando houver tenant, organização, workspace, filial ou equivalente, **identifique primeiro qual é o mecanismo de isolamento** (RLS, filtro global do ORM, middleware de tenant, filtro manual por `user_id` ou `org_id` em cada consulta) e onde ele pode ser contornado. Depois, procure onde ele está ausente ou furado, com atenção às consultas que costumam escapar: listagens, buscas, agregações, contagens de painel, relatórios e exportações. Verifique ainda: como o tenant é resolvido; se vem de claim confiável ou do cliente; se consultas e comandos o restringem; se relações entre entidades validam o mesmo tenant; se cache, filas, arquivos, relatórios e integrações preservam o contexto; se jobs recebem tenant explícito; se operações cross-tenant são excepcionais, auditadas e autorizadas.
 
 Matriz:
 
@@ -374,6 +387,7 @@ Antes de gerar o HTML:
 8. Liste as **decisões pendentes** de cada correção (desenho, produto, trade-off) com a sua recomendação, para que o usuário decida em lote.
 9. Escreva cinco prompts de correção independentes, específicos e seguros.
 10. Escolha o primeiro prompt e explique por que deve vir antes.
+11. Ordene as recomendações em P1, P2, P3… e escreva o texto das issues para o GitHub (4.5).
 
 Cada prompt orienta uma tarefa posterior, não executa a correção agora, e deve: delimitar o escopo; citar arquivos e evidências; exigir leitura dos testes e convenções; pedir um plano antes de alterar arquivos; trazer as decisões pendentes com recomendação; preservar contratos e decisões válidas; exigir testes e verificação de regressão; proibir mudanças fora do escopo; não pressupor o que não foi verificado; proibir push, PR ou merge sem autorização.
 
@@ -397,17 +411,21 @@ O HTML deve ser autocontido:
 
 ### 4.1 Estrutura do HTML
 
-1. **Cabeçalho executivo:** projeto; data e commit/branch; stack; escopo e limitações; testes executados e resultado; legenda de severidade e status; resultado geral em duas ou três frases.
-2. **Top 5 riscos:** ordenados por risco, com resumo, impacto, evidência, alcance real e link para a seção detalhada.
-3. **Resumo por domínio:** testes, segurança (exposição e segredos; dependências; IA e LLM; arquivos; containers), SOLID, DDD, perfis e autorização, middlewares, concorrência, idempotência, arquitetura, manutenibilidade, performance.
-4. **Detalhamento das etapas:** uma seção por etapa, com os achados no formato 4.2, a seção "Verificado e correto" (controles conferidos, com arquivo e linha) e o que não foi verificado.
-5. **Matriz de perfis e permissões.**
-6. **Mapa de arquitetura:** diagrama dos módulos, dependências, bancos, filas e integrações, com os acoplamentos verificados destacados. Não invente relações.
-7. **Oportunidades de aprofundamento:** cards com arquivos, problema, proposta, benefícios, força e o que a refutação achou; diagramas "Antes" e "Depois" para cada candidato relevante (o "Depois" é a proposta conceitual, não algo que já existe).
-8. **Arquivos prioritários:** arquivos extensos ou complexos, avaliação de cada um e o candidato nº 1 a refatorar.
-9. **Decisões pendentes:** por correção, as escolhas que o usuário precisa fazer, com a recomendação.
-10. **Cinco prompts de correção:** blocos completos, copiáveis e ordenados, com o primeiro destacado e justificado.
-11. **Limitações e itens não verificados:** o que não pôde ser inspecionado, por quê e o que seria necessário; teses de auditorias anteriores que não foram reabertas.
+1. **Cabeçalho executivo:** projeto; data e commit/branch; stack; escopo e limitações; testes executados e resultado; legenda de severidade e status; resultado geral em duas ou três frases; **nota metodológica** dizendo como cada categoria foi mapeada para a stack detectada (ex.: "isolamento de tenant = filtro global do EF Core + middleware de tenant; não há RLS") e quais não se aplicam.
+2. **Placar:** total de achados por severidade, um gráfico de rosca por severidade e um de barras por categoria, em SVG inline desenhado em escala, com os números escritos ao lado (o gráfico nunca é a única forma de ler o valor).
+3. **Top 5 riscos:** ordenados por risco, com resumo, impacto, evidência, alcance real e link para a seção detalhada.
+4. **Pontos fortes e pontos fracos:** o que está protegido, com evidência (vem das seções "Verificado e correto"), e os riscos centrais em poucas linhas.
+5. **Resumo por domínio:** testes, segurança (exposição e segredos; dependências; IA e LLM; arquivos; containers; XSS), SOLID, DDD, perfis e autorização, middlewares, concorrência, idempotência, arquitetura, manutenibilidade, performance.
+6. **Detalhamento das etapas:** uma seção por etapa, com os achados no formato 4.2, a seção "Verificado e correto" (controles conferidos, com arquivo e linha), as categorias que não se aplicam e o que não foi verificado.
+7. **Matriz de perfis e permissões**, e o inventário de handlers por id da Etapa 5 (quantos estruturais, manuais e sem verificação).
+8. **Mapa de arquitetura:** diagrama dos módulos, dependências, bancos, filas e integrações, com os acoplamentos verificados destacados. Não invente relações.
+9. **Oportunidades de aprofundamento:** cards com arquivos, problema, proposta, benefícios, força e o que a refutação achou; diagramas "Antes" e "Depois" para cada candidato relevante (o "Depois" é a proposta conceitual, não algo que já existe).
+10. **Arquivos prioritários:** arquivos extensos ou complexos, avaliação de cada um e o candidato nº 1 a refatorar.
+11. **Recomendações priorizadas:** P1, P2, P3… cada uma ligada aos IDs que resolve, com a dependência entre elas quando houver.
+12. **Decisões pendentes:** por correção, as escolhas que o usuário precisa fazer, com a recomendação.
+13. **Cinco prompts de correção:** blocos completos, copiáveis e ordenados, com o primeiro destacado e justificado.
+14. **Issues para o GitHub:** ver 4.5.
+15. **Limitações e itens não verificados:** o que não pôde ser inspecionado, por quê e o que seria necessário; teses de auditorias anteriores que não foram reabertas.
 
 ### 4.2 Padrão para cada achado
 
@@ -420,6 +438,7 @@ Achados de severidade Média ou maior usam o formato completo:
 - **Localização:** caminho e linhas (todos os pontos relevantes, com o trecho mínimo).
 - **Evidência:** o comportamento observado.
 - **Refutação tentada:** o que foi procurado para derrubar e o que se achou, incluindo o alcance real.
+- **Condições de exploração:** o que precisa ser verdade para o problema acontecer (feature flag ligada, configuração insegura, papel do atacante, provedor que envia o evento).
 - **Cenário de impacto.**
 - **Correção sugerida:** ação concreta, sem implementar.
 - **Teste de validação:** como provar que a correção resolveu.
@@ -427,6 +446,8 @@ Achados de severidade Média ou maior usam o formato completo:
 Achados de severidade Baixa podem ir numa tabela compacta, mas com as colunas: ID, achado, status, localização, impacto e correção, e teste de validação.
 
 ### 4.3 Qualidade visual
+
+Paleta sugerida para severidade (ajuste o tom no tema escuro para manter o contraste): crítica `#B91C1C`, alta `#EA580C`, média `#D97706`, baixa `#2563EB`, informativa em cinza neutro, ponto forte `#059669`. A cor sempre vem acompanhada do texto da severidade e de uma forma (chip, ícone), nunca sozinha.
 
 O relatório deve parecer uma revisão técnica profissional, não um dashboard genérico: hierarquia clara; resumo executivo conciso; severidades fáceis de distinguir; diagramas simples; código e caminhos em fonte monoespaçada; português claro; sem animações decorativas nem gráficos sem significado; nenhum achado importante escondido atrás de interação; todo conteúdo essencial visível sem JavaScript.
 
@@ -438,8 +459,23 @@ Quando o usuário pedir Markdown, o `AUDITORIA.md` segue a mesma estrutura da 4.
 - Uma tabela por etapa com as colunas: ID, achado, risco (alto, médio ou baixo), status, arquivo e linha, correção sugerida. Os achados médios ou maiores ganham, abaixo da tabela, o bloco completo da 4.2.
 - Severidade escrita por extenso, nunca só por emoji ou cor.
 - Diagramas em blocos `mermaid` (renderizam no GitHub e em vários editores) e só para relações confirmadas; antes e depois das oportunidades de aprofundamento como dois blocos lado a lado no texto.
-- Os cinco prompts de correção em blocos de código, para copiar.
+- Os cinco prompts de correção e as issues para o GitHub em blocos de código, para copiar.
+- Placar por severidade e por categoria em tabela (gráfico opcional em `mermaid` do tipo `pie`).
 - Termina dizendo qual dos cinco prompts rodar primeiro e por quê.
+
+### 4.5 Issues para o GitHub
+
+Ao final do relatório, uma seção com o texto completo de uma issue em Markdown para cada achado acionável (severidade Baixa ou maior), cada uma num bloco copiável, delimitado por `--- ISSUE n ---` e `--- FIM ISSUE n ---`. Cada issue contém:
+
+- **Título:** `[<Domínio>] <descrição curta da falha>`, com o domínio por extenso (Segurança, Autorização, Testes, Concorrência, Idempotência, Arquitetura, Performance…).
+- **Labels sugeridas:** o domínio e a severidade (ex.: `security`, `severidade:media`).
+- **Problema:** o que acontece e por que é explorável ou prejudicial, com as condições de exploração.
+- **Evidência:** `arquivo:linha` com o trecho mínimo de código (sem segredo).
+- **Impacto.**
+- **Sugestão de correção.**
+- **Critérios de aceite:** checklist verificável (`- [ ]`), incluindo o teste que prova a correção.
+
+Agrupe numa issue só os achados triviais do mesmo tema (ex.: vários defaults de segredo, vários endpoints sem teto de corpo), para não gerar uma enxurrada de issues. Não crie as issues no GitHub: só escreva o texto. Criar fica a cargo do usuário ou de um pedido explícito depois.
 
 ------------------------------------------------------------------------
 

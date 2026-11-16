@@ -74,17 +74,17 @@ Percorre doze etapas, na ordem:
 |---|---|
 | 0 | Reconhecimento: stack, módulos, histórico Git, áreas quentes, ADRs |
 | 1 | Testes: o que existe, o que bate na rota real, o que roda no CI, banco de teste isolado |
-| 2 | Segurança: regra só no front, chaves no bundle, RLS e policies, segredos, dependências vulneráveis e cadeia de suprimento, funcionalidades com IA/LLM, upload de arquivos, containers |
+| 2 | Segurança: regra só no front, chaves no bundle, RLS e policies, segredos, dependências vulneráveis e cadeia de suprimento, funcionalidades com IA/LLM, upload de arquivos, containers, XSS e injeção em templates |
 | 3 | SOLID |
 | 4 | DDD e integridade do domínio |
-| 5 | Perfis, autenticação, autorização e isolamento multi-tenant (com matriz de acesso) |
+| 5 | Perfis, autenticação, autorização, isolamento multi-tenant e IDOR em todos os handlers por id (com matriz de acesso) |
 | 6 | Middlewares e pipeline de requisição, incluindo o proxy na frente da aplicação |
 | 7 | Concorrência, transações e race conditions |
 | 8 | Idempotência, webhooks e processamento assíncrono |
 | 9 | Arquitetura: oportunidades de aprofundamento (deep modules), com diagramas antes e depois |
 | 10 | Separação de responsabilidades e o candidato nº 1 a refatorar |
 | 11 | Performance e resiliência |
-| 12 | Consolidação, Top 5 riscos, decisões pendentes e cinco prompts de correção |
+| 12 | Consolidação: placar com gráficos, Top 5, pontos fortes e fracos, recomendações P1/P2/P3, decisões pendentes, cinco prompts de correção e o texto das issues para o GitHub |
 
 Regras que guiam o trabalho:
 
