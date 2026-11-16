@@ -100,13 +100,35 @@ cp -r auditoria-arquitetural/skills/auditoria-arquitetural-completa ~/.claude/sk
 
 Para usar só num projeto, copie para `.claude/skills/` dentro dele.
 
+## Outros agentes além do Claude Code
+
+O `SKILL.md` segue o formato aberto de Agent Skills, então a skill funciona em outros agentes que leem esse formato. Com a CLI do skills.sh, escolha o agente na instalação:
+
+```bash
+npx skills add gustavosilvani/auditoria-arquitetural -a <agente>
+```
+
+Use `-a '*'` para instalar em todos os agentes que a CLI detectar. Fora do Claude Code:
+
+- a forma de chamar muda (cada agente tem a sua: comando com `/`, menção pelo nome ou pedido em texto, como "faça a auditoria arquitetural completa");
+- o campo `disable-model-invocation` é do Claude Code e os outros agentes o ignoram, então a skill pode ser acionada sozinha quando você pedir uma auditoria;
+- onde a skill fala em subagentes, o agente usa o equivalente que tiver ou faz as etapas em sequência, o que leva mais tempo.
+
 ## Skills opcionais
 
-A etapa de arquitetura e a exploração depois do relatório aproveitam estas skills, se estiverem instaladas, e seguem sem elas:
+A skill é autossuficiente: não precisa da `improve-codebase-architecture` nem de nenhuma outra. O método das duas está escrito dentro dela. Se estas estiverem instaladas, ela as aproveita; se não, segue o plano B descrito no próprio `SKILL.md`:
 
-- `codebase-design`: vocabulário de deep modules e o padrão "design it twice".
-- `grilling`: entrevista estruturada sobre um candidato.
-- `domain-modeling`: manutenção do glossário e dos ADRs durante o grilling.
+| Skill | Para quê | Sem ela |
+|---|---|---|
+| `codebase-design` | vocabulário de deep modules e o padrão "design it twice" | usa as definições e o método de comparação de desenhos escritos na skill |
+| `grilling` | entrevista sobre um candidato, uma pergunta por vez | conduz o grilling pelo roteiro da seção 6.2 |
+| `domain-modeling` | glossário e ADRs durante o grilling | atualiza o glossário do projeto direto, com o seu aval |
+
+Para instalar as três, todas de [mattpocock/skills](https://github.com/mattpocock/skills):
+
+```bash
+npx skills add mattpocock/skills -s codebase-design -s grilling -s domain-modeling
+```
 
 ## Créditos
 

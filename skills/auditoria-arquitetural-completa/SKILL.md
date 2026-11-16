@@ -13,6 +13,8 @@ Esta skill junta duas coisas:
 - **A auditoria de riscos** (testes, confiança no cliente, race condition, idempotência, separação de responsabilidades), ampliada para segurança, autorização, middlewares, SOLID, DDD e performance.
 - **A lente de `improve-codebase-architecture`**: oportunidades de aprofundamento (deep modules) com antes e depois, e, depois do relatório, o grilling do candidato que o usuário escolher.
 
+Esta skill é autossuficiente. O método das duas origens está escrito aqui; skills citadas pelo nome (`codebase-design`, `grilling`, `domain-modeling`) só são usadas se estiverem instaladas, e cada uma tem o seu plano B descrito no ponto em que aparece. Ela também não depende de um agente específico: onde fala em subagentes, ferramentas ou comandos, use o equivalente que o seu ambiente oferece, ou faça o passo você mesmo, em sequência.
+
 O objetivo é descobrir riscos reais, fragilidades arquiteturais, problemas de integridade e pontos de manutenção difíceis, distinguindo defeito comprovado, risco plausível e oportunidade de melhoria.
 
 **A auditoria é somente leitura. Não corrija os problemas encontrados.**
@@ -461,13 +463,18 @@ Se a exploração rebaixar a severidade (ex.: o caminho não é usado em produç
 
 ### 6.2 Candidatos de arquitetura (grilling)
 
-Siga o passo de grilling de `improve-codebase-architecture`:
+Siga o passo de grilling de `improve-codebase-architecture` (não é preciso tê-la instalada; o método está abaixo):
 
-1. Antes de grelhar, refute o candidato com verificadores independentes (item 1.4 mais o deletion test e a contagem refeita). Só leve ao usuário o que ficar de pé, dizendo o que foi lido e o que é inferência.
-2. Grelhe **um candidato por vez** com a skill `grilling`, se disponível: restrições, dependências, a forma do módulo aprofundado, o que fica atrás da seam e quais testes sobrevivem.
-3. Mantenha o modelo de domínio atual com a skill `domain-modeling`, se disponível: termo novo vai para o glossário; termo nebuloso é afinado na hora.
-4. Se o usuário rejeitar o candidato por um motivo que um explorador futuro precisaria saber, ofereça registrar um ADR para que a próxima revisão não sugira o mesmo de novo.
-5. Para comparar interfaces alternativas do módulo aprofundado, use o padrão "design it twice" da `codebase-design` (subagentes propondo desenhos radicalmente diferentes).
+1. **Refute antes de grelhar.** Verificadores independentes (item 1.4, deletion test e contagem refeita) tentam derrubar o candidato. Só leve ao usuário o que ficar de pé, dizendo o que foi lido e o que é inferência.
+2. **Grelhe um candidato por vez.** Se a skill `grilling` estiver instalada, use-a. Se não estiver, conduza assim:
+   - Monte a árvore de decisões do candidato: cada decisão abre as que dependem dela (ex.: dono do estado → como as partes conversam → como os testes se dividem → como as catracas acompanham → como entregar).
+   - A cada rodada, escolha **uma** pergunta entre as que já podem ser respondidas sem adivinhar a resposta de outra, preferindo a que destrava mais decisões.
+   - Escreva a pergunta com a sua recomendação, de modo que "sim" aceite a recomendação. Formato: `❓ **título**: contexto e opções` e, na linha seguinte, `➡️ recomendação`.
+   - Fatos são seus: leia o código, os testes e as catracas antes de perguntar (em paralelo, se puder). Decisões são do usuário: espere a resposta antes da próxima pergunta.
+   - Termine quando não sobrar decisão pendente. Resuma o desenho combinado e só aja depois que o usuário confirmar que o entendimento é o mesmo.
+3. **Mantenha o modelo de domínio atual.** Com a skill `domain-modeling` instalada, use-a. Sem ela: termo novo vai para o glossário do projeto (`GLOSSARY.md`, `CONTEXT.md` ou equivalente) e termo nebuloso é afinado na hora, sempre com o aval do usuário, porque é escrita no repositório.
+4. **Registre as recusas que importam.** Se o usuário rejeitar o candidato por um motivo que um explorador futuro precisaria saber, ofereça registrar um ADR para que a próxima revisão não sugira o mesmo de novo. Não ofereça para motivos passageiros ("agora não") nem óbvios.
+5. **Compare desenhos quando a forma não estiver clara.** Com a `codebase-design` instalada, use o padrão "design it twice" dela. Sem ela: proponha dois ou três desenhos radicalmente diferentes para o módulo aprofundado (se puder, um subagente por desenho, cada um sem ver os outros), compare-os por profundidade, locality, leverage e testabilidade, e leve a comparação ao usuário com a sua recomendação.
 
 Mudanças em glossário ou ADR feitas durante o grilling são escrita no repositório: só faça com o aval do usuário naquele momento.
 
